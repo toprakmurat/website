@@ -1,2 +1,5 @@
 [project]
 name = LektorPractice
+
+[servers.ghpages]
+target = ghpages+https://toprakmurat/website
