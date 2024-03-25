@@ -3,3 +3,6 @@ name = LektorPractice
 
 [servers.ghpages]
 target = ghpages+https://toprakmurat/website
+
+[packages]
+lektor-tags = 0.5.2

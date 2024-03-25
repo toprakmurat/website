@@ -2,6 +2,19 @@
 {% from "macros/blog.html" import render_blog_post %}
 {% block title %}{{ this.title }}{% endblock %}
 {% block body %}
+  <!-- this should render links to tags page-->
+  <div class="tags">
+  <h1>All posts tagged:</h1>
+  <ul>
+   {% for t in this.tags -%}
+   <li>
+     <a href="{{ ('/blog@tag/' ~ t.lower())|url }}">
+       {{ t }}
+     </a>
+   </li>
+   {% endfor %}
+  </ul>
+  </div>
   <div style="text-align: justify;">
   {{ render_blog_post(this) }}
   </div>
