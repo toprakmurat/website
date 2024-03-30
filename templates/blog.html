@@ -2,23 +2,6 @@
 {% from "macros/pagination.html" import render_pagination %}
 {% block title %}My Blog{% endblock %}
 {% block body %}
-  {% set tags = site.query('/blog').distinct('tags') %}
-  {% if tags %}
-  <div class="tags">
-  <h1>By Tag:</h1>
-  <ul>
-   {% for tag in tags|sort %}
-   <li>
-     <a href="{{ ('/blog@tag/' ~ tag.lower())|url }}">{{ tag }}</a>
-   </li>
-   {% else %}
-   <li><em>No items.</em></li>
-   {% endfor %}
-  </ul>
-  </div>
-  {% endif %}
-
-  
   <h2>Blog Posts</h2>
 
   <ul class="blog-index">
@@ -30,7 +13,21 @@
     </li>
   {% endfor %}
   </ul>
-
+  {% set tags = site.query('/blog').distinct('tags') %}
+  {% if tags %}
+  <div class="tags">
+  <h2>Tags</h2>
+  <ul>
+   {% for tag in tags|sort %}
+   <li>
+     <a href="{{ ('/blog@tag/' ~ tag.lower())|url }}">{{ tag }}</a>
+   </li>
+   {% else %}
+   <li><em>No items.</em></li>
+   {% endfor %}
+  </ul>
+  </div>
+  {% endif %}
   {% if this.pagination.pages > 1 %}
     {{ render_pagination(this.pagination) }}
   {% endif %}

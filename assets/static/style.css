@@ -4,7 +4,7 @@ body {
 }
 
 a {
-    color: #2a99b6;
+    color: #00994c;
 }
 
 a:hover {
@@ -14,7 +14,7 @@ a:hover {
 header, footer, div.page {
     width: 760px;
     margin: 0 auto;
-    background: #daeef3;
+    background: #FDFDD9;
     padding: 20px 30px;
 }
 
@@ -38,5 +38,5 @@ header nav ul li {
 }
 
 div.page {
-    background: #f1fbfe;
+    background: #FFFFEC;
 }
