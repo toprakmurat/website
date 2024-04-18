@@ -1,0 +1,122 @@
+title: Implementing device driver write operation
+---
+pub_date: 2024-04-18
+---
+author: Murat Toprak
+---
+tags: 
+system-programming
+---
+body:
+
+Third assignment(first two was relatively easy) in our system programming workshop ITU is to implement a circular write operation for our pseudo driver.
+
+I first wrote this structure below. I wanted to write as simple as possible to tinker with the driver and find the flaws. 
+
+```C
+ssize_t pseudo write(struct file *filp, const char user *buf,
+					size_t count, loff_t *f_pos) {
+
+	printk(KERN_ INFO "pseudo: writing\n");
+	
+	int err = 0;
+	// Check availability
+	if (down_ interruptible(&pseudo_ sem)) {
+		return -ERESTARTSYS;
+	}
+	
+	if (*f_pos + count > capacity) {
+		count = capacity - * f_pos;
+	}
+	err = copy_from user(pseudo_data + *f_pos, buf, count);
+	(*f_pos) += count;
+	up(&pseudo_sem);
+	return count:
+```
+
+First flaw is that I gave capacity parameter 50 and wrote a 70 character string. However, I found out that this code only works well for under the given capacity parameter(in this case 50).  
+
+First *f_pos: 0 and count: 50, then *f_pos becomes 50. So, count becomes zero when I subtract *f_pos from capacity(both are 50) when function is called again. 
+
+```
+write(1,
+"EY MUAD DIB YOU ARE THE MESSIAH
+.., 70) = 50
+write(1, "G TO THE DESERT MAN\n", 20) = 0
+write(1, "G TO THE DESERT MAN\n", 20) = 0
+write(1, "G TO THE DESERT MANIn", 20) = 0
+write(1, "G TO THE DESERT MAN\n', 20) = 0
+write(1, "G TO THE DESERT MAN\n", 20) = 0
+...
+...
+...
+```
+
+To fix this issue, I added another if statement
+
+```C
+ssize_t pseudo write(struct file *filp, const char user *buf,
+					size_t count, loff_t *f_pos) {
+	printk(KERN INFO "pseudo: writing\n");
+	
+	int err = 0;
+	
+	// Check availability
+	if (down_ interruptible(&pseudo_ sem)) {
+		return -ERESTARTSYS;
+	}
+
+	// wrote all
+	if (*f_pos, >= capacity) {
+		up(&pseudo sem);
+		return count;
+	}
+
+	// partial write
+	if (*f_pos + count > capacity) {
+		count = capacity - *f_pos;
+	}
+
+	err = copy_from user (pseudo data + *f_pos, buf, count);
+	
+	(*f_pos) += count;
+	up (&pseudo_sem);
+	return count;
+```
+
+As I said in the beginning, I love keeping thing simple at first. Now I know that I should add error checking a little. After adding a pinch of 'syntactic sugar', my write operation will be ready.
+
+```C
+ssize_t pseudo_write(struct file *filp, const char __user *buf,
+					size_t count, loff_t *f_pos) {
+	int err = 0;
+
+	// Check availability
+	if (down_interruptible(&pseudo_sem)) {
+		return -ERESTARTSYS;
+	}
+
+	// wrote all
+	if (*f_pos >= capacity) {
+		goto out;
+	}
+
+	// partial write
+	if (*f_pos + count > capacity) {
+		count = capacity - *f_pos;
+	}
+
+	// where the magic happens
+	err = copy_from_user(pseudo_data + *f_pos, buf, count);
+	if (err != 0) {
+		up(&pseudo_sem);
+		return -EFAULT;
+	}
+
+	(*f_pos) += count;
+
+out:
+	up(&pseudo_sem);
+	return count;
+}
+```
