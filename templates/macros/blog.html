@@ -3,9 +3,11 @@
   {% if from_index %}
     <h2><a href="{{ post|url }}">{{ post.title }}</a></h2>
   {% else %}
-    <h2>{{ post.title }}</h2>
+    <h2 style="text-align: center;">{{ post.title }}</h2>
   {% endif %}
-  <p class="meta">
+  {{ post.body }}
+  <em>
+    <p class="meta" style="color: #00994c;">
     written by
     {% if post.twitter_handle %}
       <a href="https://twitter.com/{{ post.twitter_handle
@@ -14,7 +16,7 @@
       {{ post.author }}
     {% endif %}
     on {{ post.pub_date }}
-  </p>
-  {{ post.body }}
+    </p>
+  </em>
   </div>
 {% endmacro %}

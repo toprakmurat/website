@@ -3,19 +3,27 @@
 {% block title %}{{ this.title }}{% endblock %}
 {% block body %}
   <div style="text-align: justify;">
-  {{ render_blog_post(this) }}
-    <!-- this should render links to tags page-->
+    <!-- Rendering blog post content -->
+    {{ render_blog_post(this) }}
+    <!-- Rendering images -->
+    <h2 style="text-align: center;">Gallery</h2>
+    {% for image in this.attachments -%}
+      <p style="text-align: center;">
+        <img src="{{ image|url }}" width=600>
+      </p>
+    {% endfor %}
+    <!-- Rendering links to tags page -->
     <div class="tags">
-    <h3>All posts tagged:</h3>
-    <ul>
-     {% for t in this.tags -%}
-     <li>
-       <a href="{{ ('/blog@tag/' ~ t.lower())|url }}">
-         {{ t }}
-       </a>
-     </li>
-     {% endfor %}
-    </ul>
+      <h3>All posts tagged:</h3>
+      <ul>
+        {% for t in this.tags -%}
+          <li>
+            <a href="{{ ('/blog@tag/' ~ t.lower())|url }}">
+            {{ t }}
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
     </div>
   </div>
 {% endblock %}
