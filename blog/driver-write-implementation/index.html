@@ -1,0 +1,303 @@
+<!doctype html>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../static/style.css">
+<body>
+  <header>
+    <h1>Murat Toprak</h1>
+    <nav>
+      <ul class="nav navbar-nav">
+        <li><a href="../../">Home</a></li>
+        
+          <li class="active"><a href="../">Blog</a></li>
+        
+          <li><a href="../../about/">About</a></li>
+        
+      </ul>
+    </nav>
+  </header>
+  <div class="page" style="text-align: justify;">
+    
+  <div style="text-align: justify;">
+    <!-- Rendering blog post content -->
+    
+  <div class="blog-post">
+  
+    <h2 style="text-align: center;">Implementing pseudo device driver</h2>
+  
+  <p>I attend system programming workshop instructed by <a href="https://github.com/uyar">H. Turgut Uyar</a> at ITU which is kind of challenging and at the same time very fun for me.</p>
+<h4>Third Assignment</h4>
+<p>Third assignment(first two was relatively easy) in our workshop is to implement a circular write operation for our pseudo driver.</p>
+<p>I first wrote this structure below. I wanted to write as simple as possible to tinker with the driver and find the flaws.</p>
+<pre><code class="lang-C">ssize_t pseudo write(struct file *filp, const char user *buf,
+                    size_t count, loff_t *f_pos) {
+
+    printk(KERN_ INFO &quot;pseudo: writing\n&quot;);
+
+    int err = 0;
+    // Check availability
+    if (down_ interruptible(&amp;pseudo_ sem)) {
+        return -ERESTARTSYS;
+    }
+
+    if (*f_pos + count &gt; capacity) {
+        count = capacity - * f_pos;
+    }
+    err = copy_from user(pseudo_data + *f_pos, buf, count);
+    (*f_pos) += count;
+    up(&amp;pseudo_sem);
+    return count:
+</code></pre>
+<p>First flaw is that I gave capacity parameter 50 and wrote a 70 character string. However, I found out that this code only works well for under the given capacity parameter(in this case 50).</p>
+<p>First <em>f_pos: 0 and count: 50, then </em>f_pos becomes 50. So, count becomes zero when I subtract *f_pos from capacity(both are 50) when function is called again.</p>
+<pre><code>write(1,
+"EY MUAD DIB YOU ARE THE MESSIAH
+.., 70) = 50
+write(1, "G TO THE DESERT MAN\n", 20) = 0
+write(1, "G TO THE DESERT MAN\n", 20) = 0
+write(1, "G TO THE DESERT MANIn", 20) = 0
+write(1, "G TO THE DESERT MAN\n', 20) = 0
+write(1, "G TO THE DESERT MAN\n", 20) = 0
+...
+...
+...
+</code></pre>
+<p>To fix this issue, I added another if statement</p>
+<pre><code class="lang-C">ssize_t pseudo write(struct file *filp, const char user *buf,
+                    size_t count, loff_t *f_pos) {
+    printk(KERN INFO &quot;pseudo: writing\n&quot;);
+
+    int err = 0;
+
+    // Check availability
+    if (down_ interruptible(&amp;pseudo_ sem)) {
+        return -ERESTARTSYS;
+    }
+
+    // wrote all
+    if (*f_pos, &gt;= capacity) {
+        up(&amp;pseudo sem);
+        return count;
+    }
+
+    // partial write
+    if (*f_pos + count &gt; capacity) {
+        count = capacity - *f_pos;
+    }
+
+    err = copy_from user (pseudo data + *f_pos, buf, count);
+
+    (*f_pos) += count;
+    up (&amp;pseudo_sem);
+    return count;
+</code></pre>
+<p>As I said in the beginning, I love keeping thing simple at first. Now I know that I should add error checking a little. After adding a pinch of 'syntactic sugar', my write operation will be ready.</p>
+<pre><code class="lang-C">ssize_t pseudo_write(struct file *filp, const char __user *buf,
+                    size_t count, loff_t *f_pos) {
+    int err = 0;
+
+    // Check availability
+    if (down_interruptible(&amp;pseudo_sem)) {
+        return -ERESTARTSYS;
+    }
+
+    // wrote all
+    if (*f_pos &gt;= capacity) {
+        goto out;
+    }
+
+    // partial write
+    if (*f_pos + count &gt; capacity) {
+        count = capacity - *f_pos;
+    }
+
+    // where the magic happens
+    err = copy_from_user(pseudo_data + *f_pos, buf, count);
+    if (err != 0) {
+        up(&amp;pseudo_sem);
+        return -EFAULT;
+    }
+
+    (*f_pos) += count;
+
+out:
+    up(&amp;pseudo_sem);
+    return count;
+}
+</code></pre>
+<h4>Fourth Assignment</h4>
+<p>The forth assignment is to implement the seek operation. I did not know what seek operation means but I found that it is basically moving the file pointer by the specified offset parameter.</p>
+<pre><code class="lang-C">loff_t pseudo_llseek(struct file *filp, loff_t off, int whence) {
+    loff_t newpos = 0;
+
+    switch(whence) {
+    // SEEK_SET: from beginning, SEEK_CUR: from current, SEEK_END: from end
+    case SEEK_SET: 
+        newpos = off;
+        break;
+
+    case SEEK_CUR:
+        newpos = filp-&gt;f_pos + off;
+        break;
+
+    case SEEK_END:
+        newpos = capacity + off - 1;
+        break;
+
+    // default can&#39;t happen
+    }
+
+    if (newpos &lt; 0 || newpos &gt;= capacity) 
+        return -EINVAL;
+
+    filp-&gt;f_pos = newpos;
+    return newpos;
+}
+</code></pre>
+<p>Let's have a look at the function parameters:<br>
+<code>struct file *filp:</code> file pointer on which this seek operation will be performed</p>
+<p><code>loff_t off:</code> loff_t is a linux data type which is defined as long long. Usually, _t implies that it is a type in C. So, loff_t is a data type that is long long and specifies file offsets in linux kernel.</p>
+<p><code>int whence:</code> this parameter specifies from where the offset parameter will start. There are three possible parameters which are SEEK_SET, SEEK_CUR and SEEK_END. These are just macros and their values 0, 1, 2, respectively. (Typical enumeration)</p>
+<p>So what this function does is it moves the f_pos pointer by the offset value based on the <code>whence</code> parameter and returns the new position of the f_pos pointer.</p>
+<h4>Fifth Assignment</h4>
+<p>The fifth assignment is to implement an ioctl operation named "PSEUDO_INC" which takes an 8-bit, signed integer value as parameter and increases each byte in the device by that value. It seemed a little complex at first but it is not difficult to implement.</p>
+<p>IOCTL stands for "input-output control". This function can have different implementations according to your needs. In my case, it will take an 8-bit signed integer (which is char obviously). And as always I did not know how to do that. I found that getting parameter is a simple one line preprocessor statement:</p>
+<p><code>#define PSEUDO_INC _IOW('p', 1, signed char)</code>
+'p' is the unique identifier for the device</p>
+<p>1 is the command number, Actually I don't know anything more, I wrote 1 because every example I saw had written 1 in this parameter.</p>
+<p>signed char is the type of the parameter which we want to give to device.</p>
+<p>Below is the code for this simple ioctl.</p>
+<pre><code class="lang-C">/* unlocked ioctl, without taking the file&#39;s lock */
+long pseudo_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
+    signed char increment;
+    int err;
+    int i;
+
+    switch(cmd) {
+    case PSEUDO_INC:
+        // Copy the ioctl argument from user space to kernel space
+        err = copy_from_user(&amp;increment, (signed char __user *)arg, sizeof(signed char));
+        if (err &lt; 0) {
+            return -EFAULT;
+        }
+
+        // Perform the PSEUDO_INC operation
+        // iterate over each byte in the device buffer and increment that byte with the given value
+        for (i = 0; i &lt; capacity; i++) {
+            pseudo_data[i] += increment;
+        }
+        break;
+
+    default:
+        return -ENOTTY;  // invalid ioctl
+    }
+    return 0;
+}
+</code></pre>
+<p>This function is so simple, it just increments the content of the pre-defined and pre-filled buffer by the specified value using a for loop. I want to emphasize that ioctl is often done by without taking the file's lock beceause the kernel ensures that ioctl commands are executed in an isolated and consistent manner.</p>
+<h4>Sixth Assignment</h4>
+<p>The instruction for the sixth assignment is "At the moment, the device node has to be created manually after inserting the module. Handle this automatically without the need for human intervention." I was doing <code>sudo mknod /dev/pseudo c 240 0</code> to create the node after inserting the module. Now, this should be done automatically.</p>
+<p>We need to define two things, a device class and a device node. These are global variables.</p>
+<pre><code class="lang-C">static struct class *pseudo_class;
+static struct device *pseudo_device;
+</code></pre>
+<p>Then inside the open function (in my case pseudo_open) we need to create the class and node.</p>
+<pre><code class="lang-C">// Create a device class
+pseudo_class = class_create(&quot;pseudo&quot;);
+if (IS_ERR(pseudo_class)) {
+    printk(KERN_ERR &quot;pseudo: failed to register device class\n&quot;);
+    return PTR_ERR(pseudo_class);
+}
+
+// Create the device node
+/* 
+struct device *device_create(
+    struct class *class: device class to which the new device belongs, 
+    struct device *parent: parent device of the new device, NULL if not, 
+    dev_t devt: device number of the new device,
+    void *drvdata: device specific data, NULL if not, 
+    const char *fmt: name of the new device,
+    ...);
+*/
+pseudo_device = device_create(pseudo_class, NULL, devno, NULL, &quot;pseudo&quot;);
+if (IS_ERR(pseudo_device)) {
+    printk(KERN_ERR &quot;pseudo: failed to create the device node\n&quot;);
+    return PTR_ERR(pseudo_device);
+}
+
+printk(KERN_INFO &quot;pseudo: device has been created successfully&quot;);
+</code></pre>
+<p>These are just typical functions from kernel. I added explanations of the parameters of device_create in case I forget.</p>
+<p>There is one more thing to do: we need to destroy this class and device when exit function is called (in my case pseudo_exit).</p>
+<pre><code class="lang-C">// Remove the device node
+device_destroy(pseudo_class, devno);
+
+// Remove the device class
+class_destroy(pseudo_class);
+</code></pre>
+<h4>Seventh Assignment</h4>
+<p>The last assignment is to "Add an entry for the device under the /proc file system, like /proc/pseudo.This entry should report the device capacity."</p>
+<p>Again, I did not know what /proc filesystem is and found that it is a virtual file system to give ability to user space programs to retrieve information about kernel and system information. This filesystem exists in memory, that's why it is called virtual file system. I often think about these geniuses that come up with these kind of ideas. Maybe that could be the subject of another post.<br>
+(proc stands for process information)</p>
+<pre><code class="lang-C">struct proc_dir_entry *pseudo_proc;
+
+static int pseudo_proc_show(struct seq_file *m, void *v) {
+    seq_printf(m, &quot;pseudo: capacity is %d\n&quot;, capacity);
+    return 0;
+}
+
+static int pseudo_proc_open(struct inode *inode, struct file *file) {
+    return single_open(file, pseudo_proc_show, NULL);
+}
+
+static const struct proc_ops pseudo_proc_ops = {
+    .proc_open = pseudo_proc_open,
+    .proc_read = seq_read,
+    .proc_lseek = seq_lseek,
+    .proc_release = single_release,
+};
+</code></pre>
+<p>It is very much like creating the device under /dev file system but it is much easier as it is simpler.</p>
+<p>Firsty, create a global varaiable for proc entry. Then, implement basic open and show functions. Finally, we must map these functions with the system calls.
+(Do not forget to create and remove proc entries in init and exit functions)</p>
+<pre><code class="lang-C">// in init function (pseudo_init)
+pseudo_proc = proc_create(&quot;pseudo&quot;, 0777, NULL, &amp;pseudo_proc_ops); 
+
+// in exit function (pseudo_exit)
+remove_proc_entry(&quot;pseudo&quot;, NULL);
+</code></pre>
+<p>Overall, these concepts, functions etc. seemed challenging at first glance (maybe because I'm a freshman) and I spent a considerable amount of time trying to understand them. However, I learned lots of things in the end. Next topic in the workshop is FUSE(filesystem in user space).</p>
+<p>You can see the <a href="https://github.com/toprakmurat/system-programming-workshop">whole code</a></p>
+
+  <em>
+    <p class="meta" style="color: #00994c;">
+    written by
+    
+      Murat Toprak
+    
+    on 2024-04-18
+    </p>
+  </em>
+  </div>
+
+    <!-- Rendering images -->
+    <h2 style="text-align: center;">Gallery</h2>
+    
+    <!-- Rendering links to tags page -->
+    <div class="tags">
+      <h3>All posts tagged:</h3>
+      <ul>
+        <li>
+            <a href="../tag/system-programming/">
+            system-programming
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  </div>
+  <footer>
+    &copy; Copyright 2024 by Murat Toprak.
+  </footer>
+</body>
