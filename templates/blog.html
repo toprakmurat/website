@@ -7,9 +7,9 @@
   <ul class="blog-index">
   {% for post in this.pagination.items %}
     <li>
-      <a href="{{ post|url }}">{{ post.title }}</a> —
-      by {{ post.author }}
-      on {{ post.pub_date|dateformat }}
+      {{ post.pub_date.strftime('%d/%m/%Y') }}
+      -
+      <a href="{{ post|url }}">{{ post.title }}</a>
     </li>
   {% endfor %}
   </ul>
