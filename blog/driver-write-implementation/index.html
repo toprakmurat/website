@@ -17,7 +17,6 @@
   </header>
   <div class="page" style="text-align: justify;">
     
-  <link rel="stylesheet" href="../../static/pygments.css">
   <div style="text-align: justify;">
     <!-- Rendering blog post content -->
     
@@ -29,25 +28,25 @@
 <h4>Third Assignment</h4>
 <p>Third assignment(first two was relatively easy) in our workshop is to implement a circular write operation for our pseudo driver.</p>
 <p>I first wrote this structure below. I wanted to write as simple as possible to tinker with the driver and find the flaws.</p>
-<div class="hll"><pre><span></span><span class="kt">ssize_t</span><span class="w"> </span><span class="n">pseudo</span><span class="w"> </span><span class="n">write</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">filp</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">user</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">,</span>
-<span class="w">                    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">count</span><span class="p">,</span><span class="w"> </span><span class="n">loff_t</span><span class="w"> </span><span class="o">*</span><span class="n">f_pos</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<pre><code class="lang-C">ssize_t pseudo write(struct file *filp, const char user *buf,
+                    size_t count, loff_t *f_pos) {
 
-<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="n">KERN_</span><span class="w"> </span><span class="n">INFO</span><span class="w"> </span><span class="s">&quot;pseudo: writing</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+    printk(KERN_ INFO &quot;pseudo: writing\n&quot;);
 
-<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<span class="w">    </span><span class="c1">// Check availability</span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">down_</span><span class="w"> </span><span class="n">interruptible</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pseudo_</span><span class="w"> </span><span class="n">sem</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">ERESTARTSYS</span><span class="p">;</span>
-<span class="w">    </span><span class="p">}</span>
+    int err = 0;
+    // Check availability
+    if (down_ interruptible(&amp;pseudo_ sem)) {
+        return -ERESTARTSYS;
+    }
 
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">f_pos</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">count</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">capacity</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">capacity</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">f_pos</span><span class="p">;</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="w">    </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">copy_from</span><span class="w"> </span><span class="n">user</span><span class="p">(</span><span class="n">pseudo_data</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="o">*</span><span class="n">f_pos</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">count</span><span class="p">);</span>
-<span class="w">    </span><span class="p">(</span><span class="o">*</span><span class="n">f_pos</span><span class="p">)</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">count</span><span class="p">;</span>
-<span class="w">    </span><span class="n">up</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pseudo_sem</span><span class="p">);</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">count</span><span class="o">:</span>
-</pre></div>
+    if (*f_pos + count &gt; capacity) {
+        count = capacity - * f_pos;
+    }
+    err = copy_from user(pseudo_data + *f_pos, buf, count);
+    (*f_pos) += count;
+    up(&amp;pseudo_sem);
+    return count:
+</code></pre>
 <p>First flaw is that I gave capacity parameter 50 and wrote a 70 character string. However, I found out that this code only works well for under the given capacity parameter(in this case 50).</p>
 <p>First <em>f_pos: 0 and count: 50, then </em>f_pos becomes 50. So, count becomes zero when I subtract *f_pos from capacity(both are 50) when function is called again.</p>
 <pre><code>write(1,
@@ -63,97 +62,97 @@ write(1, "G TO THE DESERT MAN\n", 20) = 0
 ...
 </code></pre>
 <p>To fix this issue, I added another if statement</p>
-<div class="hll"><pre><span></span><span class="kt">ssize_t</span><span class="w"> </span><span class="n">pseudo</span><span class="w"> </span><span class="n">write</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">filp</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">user</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">,</span>
-<span class="w">                    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">count</span><span class="p">,</span><span class="w"> </span><span class="n">loff_t</span><span class="w"> </span><span class="o">*</span><span class="n">f_pos</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="n">KERN</span><span class="w"> </span><span class="n">INFO</span><span class="w"> </span><span class="s">&quot;pseudo: writing</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+<pre><code class="lang-C">ssize_t pseudo write(struct file *filp, const char user *buf,
+                    size_t count, loff_t *f_pos) {
+    printk(KERN INFO &quot;pseudo: writing\n&quot;);
 
-<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+    int err = 0;
 
-<span class="w">    </span><span class="c1">// Check availability</span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">down_</span><span class="w"> </span><span class="n">interruptible</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pseudo_</span><span class="w"> </span><span class="n">sem</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">ERESTARTSYS</span><span class="p">;</span>
-<span class="w">    </span><span class="p">}</span>
+    // Check availability
+    if (down_ interruptible(&amp;pseudo_ sem)) {
+        return -ERESTARTSYS;
+    }
 
-<span class="w">    </span><span class="c1">// wrote all</span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">f_pos</span><span class="p">,</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">capacity</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">up</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pseudo</span><span class="w"> </span><span class="n">sem</span><span class="p">);</span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">count</span><span class="p">;</span>
-<span class="w">    </span><span class="p">}</span>
+    // wrote all
+    if (*f_pos, &gt;= capacity) {
+        up(&amp;pseudo sem);
+        return count;
+    }
 
-<span class="w">    </span><span class="c1">// partial write</span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">f_pos</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">count</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">capacity</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">capacity</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="o">*</span><span class="n">f_pos</span><span class="p">;</span>
-<span class="w">    </span><span class="p">}</span>
+    // partial write
+    if (*f_pos + count &gt; capacity) {
+        count = capacity - *f_pos;
+    }
 
-<span class="w">    </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">copy_from</span><span class="w"> </span><span class="n">user</span><span class="w"> </span><span class="p">(</span><span class="n">pseudo</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="o">*</span><span class="n">f_pos</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">count</span><span class="p">);</span>
+    err = copy_from user (pseudo data + *f_pos, buf, count);
 
-<span class="w">    </span><span class="p">(</span><span class="o">*</span><span class="n">f_pos</span><span class="p">)</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">count</span><span class="p">;</span>
-<span class="w">    </span><span class="n">up</span><span class="w"> </span><span class="p">(</span><span class="o">&amp;</span><span class="n">pseudo_sem</span><span class="p">);</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">count</span><span class="p">;</span>
-</pre></div>
+    (*f_pos) += count;
+    up (&amp;pseudo_sem);
+    return count;
+</code></pre>
 <p>As I said in the beginning, I love keeping thing simple at first. Now I know that I should add error checking a little. After adding a pinch of 'syntactic sugar', my write operation will be ready.</p>
-<div class="hll"><pre><span></span><span class="kt">ssize_t</span><span class="w"> </span><span class="nf">pseudo_write</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">filp</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">,</span>
-<span class="w">                    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">count</span><span class="p">,</span><span class="w"> </span><span class="n">loff_t</span><span class="w"> </span><span class="o">*</span><span class="n">f_pos</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<pre><code class="lang-C">ssize_t pseudo_write(struct file *filp, const char __user *buf,
+                    size_t count, loff_t *f_pos) {
+    int err = 0;
 
-<span class="w">    </span><span class="c1">// Check availability</span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">down_interruptible</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pseudo_sem</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">ERESTARTSYS</span><span class="p">;</span>
-<span class="w">    </span><span class="p">}</span>
+    // Check availability
+    if (down_interruptible(&amp;pseudo_sem)) {
+        return -ERESTARTSYS;
+    }
 
-<span class="w">    </span><span class="c1">// wrote all</span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">f_pos</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">capacity</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="k">goto</span><span class="w"> </span><span class="n">out</span><span class="p">;</span>
-<span class="w">    </span><span class="p">}</span>
+    // wrote all
+    if (*f_pos &gt;= capacity) {
+        goto out;
+    }
 
-<span class="w">    </span><span class="c1">// partial write</span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">f_pos</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">count</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">capacity</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">capacity</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="o">*</span><span class="n">f_pos</span><span class="p">;</span>
-<span class="w">    </span><span class="p">}</span>
+    // partial write
+    if (*f_pos + count &gt; capacity) {
+        count = capacity - *f_pos;
+    }
 
-<span class="w">    </span><span class="c1">// where the magic happens</span>
-<span class="w">    </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">copy_from_user</span><span class="p">(</span><span class="n">pseudo_data</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="o">*</span><span class="n">f_pos</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">count</span><span class="p">);</span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">up</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pseudo_sem</span><span class="p">);</span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EFAULT</span><span class="p">;</span>
-<span class="w">    </span><span class="p">}</span>
+    // where the magic happens
+    err = copy_from_user(pseudo_data + *f_pos, buf, count);
+    if (err != 0) {
+        up(&amp;pseudo_sem);
+        return -EFAULT;
+    }
 
-<span class="w">    </span><span class="p">(</span><span class="o">*</span><span class="n">f_pos</span><span class="p">)</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">count</span><span class="p">;</span>
+    (*f_pos) += count;
 
-<span class="nl">out</span><span class="p">:</span>
-<span class="w">    </span><span class="n">up</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pseudo_sem</span><span class="p">);</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">count</span><span class="p">;</span>
-<span class="p">}</span>
-</pre></div>
+out:
+    up(&amp;pseudo_sem);
+    return count;
+}
+</code></pre>
 <h4>Fourth Assignment</h4>
 <p>The forth assignment is to implement the seek operation. I did not know what seek operation means but I found that it is basically moving the file pointer by the specified offset parameter.</p>
-<div class="hll"><pre><span></span><span class="n">loff_t</span><span class="w"> </span><span class="nf">pseudo_llseek</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">filp</span><span class="p">,</span><span class="w"> </span><span class="n">loff_t</span><span class="w"> </span><span class="n">off</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">whence</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">loff_t</span><span class="w"> </span><span class="n">newpos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<pre><code class="lang-C">loff_t pseudo_llseek(struct file *filp, loff_t off, int whence) {
+    loff_t newpos = 0;
 
-<span class="w">    </span><span class="k">switch</span><span class="p">(</span><span class="n">whence</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="c1">// SEEK_SET: from beginning, SEEK_CUR: from current, SEEK_END: from end</span>
-<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="no">SEEK_SET</span><span class="p">:</span><span class="w"> </span>
-<span class="w">        </span><span class="n">newpos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">off</span><span class="p">;</span>
-<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+    switch(whence) {
+    // SEEK_SET: from beginning, SEEK_CUR: from current, SEEK_END: from end
+    case SEEK_SET: 
+        newpos = off;
+        break;
 
-<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="no">SEEK_CUR</span><span class="p">:</span>
-<span class="w">        </span><span class="n">newpos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">filp</span><span class="o">-&gt;</span><span class="n">f_pos</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">off</span><span class="p">;</span>
-<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+    case SEEK_CUR:
+        newpos = filp-&gt;f_pos + off;
+        break;
 
-<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="no">SEEK_END</span><span class="p">:</span>
-<span class="w">        </span><span class="n">newpos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">capacity</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">off</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
-<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+    case SEEK_END:
+        newpos = capacity + off - 1;
+        break;
 
-<span class="w">    </span><span class="c1">// default can&#39;t happen</span>
-<span class="w">    </span><span class="p">}</span>
+    // default can&#39;t happen
+    }
 
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">newpos</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">newpos</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">capacity</span><span class="p">)</span><span class="w"> </span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EINVAL</span><span class="p">;</span>
+    if (newpos &lt; 0 || newpos &gt;= capacity) 
+        return -EINVAL;
 
-<span class="w">    </span><span class="n">filp</span><span class="o">-&gt;</span><span class="n">f_pos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">newpos</span><span class="p">;</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">newpos</span><span class="p">;</span>
-<span class="p">}</span>
-</pre></div>
+    filp-&gt;f_pos = newpos;
+    return newpos;
+}
+</code></pre>
 <p>Let's have a look at the function parameters:<br>
 <code>struct file *filp:</code> file pointer on which this seek operation will be performed</p>
 <p><code>loff_t off:</code> loff_t is a linux data type which is defined as long long. Usually, _t implies that it is a type in C. So, loff_t is a data type that is long long and specifies file offsets in linux kernel.</p>
@@ -167,105 +166,105 @@ write(1, "G TO THE DESERT MAN\n", 20) = 0
 <p>1 is the command number, Actually I don't know anything more, I wrote 1 because every example I saw had written 1 in this parameter.</p>
 <p>signed char is the type of the parameter which we want to give to device.</p>
 <p>Below is the code for this simple ioctl.</p>
-<div class="hll"><pre><span></span><span class="cm">/* unlocked ioctl, without taking the file&#39;s lock */</span>
-<span class="kt">long</span><span class="w"> </span><span class="nf">pseudo_ioctl</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">filp</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">cmd</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="kt">signed</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">increment</span><span class="p">;</span>
-<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
-<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
+<pre><code class="lang-C">/* unlocked ioctl, without taking the file&#39;s lock */
+long pseudo_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
+    signed char increment;
+    int err;
+    int i;
 
-<span class="w">    </span><span class="k">switch</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="no">PSEUDO_INC</span><span class="p">:</span>
-<span class="w">        </span><span class="c1">// Copy the ioctl argument from user space to kernel space</span>
-<span class="w">        </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">copy_from_user</span><span class="p">(</span><span class="o">&amp;</span><span class="n">increment</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="kt">signed</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">__user</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">arg</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="kt">signed</span><span class="w"> </span><span class="kt">char</span><span class="p">));</span>
-<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">err</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EFAULT</span><span class="p">;</span>
-<span class="w">        </span><span class="p">}</span>
+    switch(cmd) {
+    case PSEUDO_INC:
+        // Copy the ioctl argument from user space to kernel space
+        err = copy_from_user(&amp;increment, (signed char __user *)arg, sizeof(signed char));
+        if (err &lt; 0) {
+            return -EFAULT;
+        }
 
-<span class="w">        </span><span class="c1">// Perform the PSEUDO_INC operation</span>
-<span class="w">        </span><span class="c1">// iterate over each byte in the device buffer and increment that byte with the given value</span>
-<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">capacity</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="n">pseudo_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">increment</span><span class="p">;</span>
-<span class="w">        </span><span class="p">}</span>
-<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+        // Perform the PSEUDO_INC operation
+        // iterate over each byte in the device buffer and increment that byte with the given value
+        for (i = 0; i &lt; capacity; i++) {
+            pseudo_data[i] += increment;
+        }
+        break;
 
-<span class="w">    </span><span class="k">default</span><span class="o">:</span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">ENOTTY</span><span class="p">;</span><span class="w">  </span><span class="c1">// invalid ioctl</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span>
-</pre></div>
+    default:
+        return -ENOTTY;  // invalid ioctl
+    }
+    return 0;
+}
+</code></pre>
 <p>This function is so simple, it just increments the content of the pre-defined and pre-filled buffer by the specified value using a for loop. I want to emphasize that ioctl is often done by without taking the file's lock beceause the kernel ensures that ioctl commands are executed in an isolated and consistent manner.</p>
 <h4>Sixth Assignment</h4>
 <p>The instruction for the sixth assignment is "At the moment, the device node has to be created manually after inserting the module. Handle this automatically without the need for human intervention." I was doing <code>sudo mknod /dev/pseudo c 240 0</code> to create the node after inserting the module. Now, this should be done automatically.</p>
 <p>We need to define two things, a device class and a device node. These are global variables.</p>
-<div class="hll"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">class</span><span class="w"> </span><span class="o">*</span><span class="n">pseudo_class</span><span class="p">;</span>
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">device</span><span class="w"> </span><span class="o">*</span><span class="n">pseudo_device</span><span class="p">;</span>
-</pre></div>
+<pre><code class="lang-C">static struct class *pseudo_class;
+static struct device *pseudo_device;
+</code></pre>
 <p>Then inside the open function (in my case pseudo_open) we need to create the class and node.</p>
-<div class="hll"><pre><span></span><span class="c1">// Create a device class</span>
-<span class="n">pseudo_class</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">class_create</span><span class="p">(</span><span class="s">&quot;pseudo&quot;</span><span class="p">);</span>
-<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">IS_ERR</span><span class="p">(</span><span class="n">pseudo_class</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="n">KERN_ERR</span><span class="w"> </span><span class="s">&quot;pseudo: failed to register device class</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">PTR_ERR</span><span class="p">(</span><span class="n">pseudo_class</span><span class="p">);</span>
-<span class="p">}</span>
+<pre><code class="lang-C">// Create a device class
+pseudo_class = class_create(&quot;pseudo&quot;);
+if (IS_ERR(pseudo_class)) {
+    printk(KERN_ERR &quot;pseudo: failed to register device class\n&quot;);
+    return PTR_ERR(pseudo_class);
+}
 
-<span class="c1">// Create the device node</span>
-<span class="cm">/* </span>
-<span class="cm">struct device *device_create(</span>
-<span class="cm">    struct class *class: device class to which the new device belongs, </span>
-<span class="cm">    struct device *parent: parent device of the new device, NULL if not, </span>
-<span class="cm">    dev_t devt: device number of the new device,</span>
-<span class="cm">    void *drvdata: device specific data, NULL if not, </span>
-<span class="cm">    const char *fmt: name of the new device,</span>
-<span class="cm">    ...);</span>
-<span class="cm">*/</span>
-<span class="n">pseudo_device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device_create</span><span class="p">(</span><span class="n">pseudo_class</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">devno</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;pseudo&quot;</span><span class="p">);</span>
-<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">IS_ERR</span><span class="p">(</span><span class="n">pseudo_device</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">printk</span><span class="p">(</span><span class="n">KERN_ERR</span><span class="w"> </span><span class="s">&quot;pseudo: failed to create the device node</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">PTR_ERR</span><span class="p">(</span><span class="n">pseudo_device</span><span class="p">);</span>
-<span class="p">}</span>
+// Create the device node
+/* 
+struct device *device_create(
+    struct class *class: device class to which the new device belongs, 
+    struct device *parent: parent device of the new device, NULL if not, 
+    dev_t devt: device number of the new device,
+    void *drvdata: device specific data, NULL if not, 
+    const char *fmt: name of the new device,
+    ...);
+*/
+pseudo_device = device_create(pseudo_class, NULL, devno, NULL, &quot;pseudo&quot;);
+if (IS_ERR(pseudo_device)) {
+    printk(KERN_ERR &quot;pseudo: failed to create the device node\n&quot;);
+    return PTR_ERR(pseudo_device);
+}
 
-<span class="n">printk</span><span class="p">(</span><span class="n">KERN_INFO</span><span class="w"> </span><span class="s">&quot;pseudo: device has been created successfully&quot;</span><span class="p">);</span>
-</pre></div>
+printk(KERN_INFO &quot;pseudo: device has been created successfully&quot;);
+</code></pre>
 <p>These are just typical functions from kernel. I added explanations of the parameters of device_create in case I forget.</p>
 <p>There is one more thing to do: we need to destroy this class and device when exit function is called (in my case pseudo_exit).</p>
-<div class="hll"><pre><span></span><span class="c1">// Remove the device node</span>
-<span class="n">device_destroy</span><span class="p">(</span><span class="n">pseudo_class</span><span class="p">,</span><span class="w"> </span><span class="n">devno</span><span class="p">);</span>
+<pre><code class="lang-C">// Remove the device node
+device_destroy(pseudo_class, devno);
 
-<span class="c1">// Remove the device class</span>
-<span class="n">class_destroy</span><span class="p">(</span><span class="n">pseudo_class</span><span class="p">);</span>
-</pre></div>
+// Remove the device class
+class_destroy(pseudo_class);
+</code></pre>
 <h4>Seventh Assignment</h4>
 <p>The last assignment is to "Add an entry for the device under the /proc file system, like /proc/pseudo.This entry should report the device capacity."</p>
 <p>Again, I did not know what /proc filesystem is and found that it is a virtual file system to give ability to user space programs to retrieve information about kernel and system information. This filesystem exists in memory, that's why it is called virtual file system. I often think about these geniuses that come up with these kind of ideas. Maybe that could be the subject of another post.<br>
 (proc stands for process information)</p>
-<div class="hll"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">proc_dir_entry</span><span class="w"> </span><span class="o">*</span><span class="n">pseudo_proc</span><span class="p">;</span>
+<pre><code class="lang-C">struct proc_dir_entry *pseudo_proc;
 
-<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">pseudo_proc_show</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">seq_file</span><span class="w"> </span><span class="o">*</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">seq_printf</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;pseudo: capacity is %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">capacity</span><span class="p">);</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span>
+static int pseudo_proc_show(struct seq_file *m, void *v) {
+    seq_printf(m, &quot;pseudo: capacity is %d\n&quot;, capacity);
+    return 0;
+}
 
-<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">pseudo_proc_open</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">inode</span><span class="w"> </span><span class="o">*</span><span class="n">inode</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="n">file</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">single_open</span><span class="p">(</span><span class="n">file</span><span class="p">,</span><span class="w"> </span><span class="n">pseudo_proc_show</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
-<span class="p">}</span>
+static int pseudo_proc_open(struct inode *inode, struct file *file) {
+    return single_open(file, pseudo_proc_show, NULL);
+}
 
-<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">proc_ops</span><span class="w"> </span><span class="n">pseudo_proc_ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">proc_open</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pseudo_proc_open</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">proc_read</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">seq_read</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">proc_lseek</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">seq_lseek</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">proc_release</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">single_release</span><span class="p">,</span>
-<span class="p">};</span>
-</pre></div>
+static const struct proc_ops pseudo_proc_ops = {
+    .proc_open = pseudo_proc_open,
+    .proc_read = seq_read,
+    .proc_lseek = seq_lseek,
+    .proc_release = single_release,
+};
+</code></pre>
 <p>It is very much like creating the device under /dev file system but it is much easier as it is simpler.</p>
 <p>Firsty, create a global varaiable for proc entry. Then, implement basic open and show functions. Finally, we must map these functions with the system calls.
 (Do not forget to create and remove proc entries in init and exit functions)</p>
-<div class="hll"><pre><span></span><span class="c1">// in init function (pseudo_init)</span>
-<span class="n">pseudo_proc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">proc_create</span><span class="p">(</span><span class="s">&quot;pseudo&quot;</span><span class="p">,</span><span class="w"> </span><span class="mo">0777</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pseudo_proc_ops</span><span class="p">);</span><span class="w"> </span>
+<pre><code class="lang-C">// in init function (pseudo_init)
+pseudo_proc = proc_create(&quot;pseudo&quot;, 0777, NULL, &amp;pseudo_proc_ops); 
 
-<span class="c1">// in exit function (pseudo_exit)</span>
-<span class="n">remove_proc_entry</span><span class="p">(</span><span class="s">&quot;pseudo&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
-</pre></div>
+// in exit function (pseudo_exit)
+remove_proc_entry(&quot;pseudo&quot;, NULL);
+</code></pre>
 <p>Overall, these concepts, functions etc. seemed challenging at first glance (maybe because I'm a freshman) and I spent a considerable amount of time trying to understand them. However, I learned lots of things in the end. Next topic in the workshop is FUSE(filesystem in user space).</p>
 <p>You can see the <a href="https://github.com/toprakmurat/system-programming-workshop">whole code</a></p>
 
@@ -288,13 +287,8 @@ write(1, "G TO THE DESERT MAN\n", 20) = 0
       <h3>All posts tagged:</h3>
       <ul>
         <li>
-            <a href="../tag/programming/">
-            programming
-            </a>
-          </li>
-        <li>
-            <a href=".">
-            C
+            <a href="../tag/system-programming/">
+            system-programming
             </a>
           </li>
         
